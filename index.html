@@ -22140,14 +22140,33 @@ const PARAGRAFOS_LBI = [
     tocarPedacoAtual();
   }
 
+  let wakeLock = null;
+  async function pedirWakeLock() {
+    try {
+      if ("wakeLock" in navigator) {
+        wakeLock = await navigator.wakeLock.request("screen");
+        wakeLock.addEventListener("release", () => { wakeLock = null; });
+      }
+    } catch (_) { wakeLock = null; }
+  }
+  function liberarWakeLock() {
+    if (wakeLock) { try { wakeLock.release(); } catch (_) {} wakeLock = null; }
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && lendo && !pausado && !wakeLock) {
+      pedirWakeLock();
+    }
+  });
+
   function iniciarLeitura(fromIdx, unico) {
     ttsPararGlobal();
     const a = garantirAudio();
     TTS_ENGINE.audio = a;
-    TTS_ENGINE.onStopExterno = () => { lendo = false; pausado = false; atualizarUI(); };
+    TTS_ENGINE.onStopExterno = () => { lendo = false; pausado = false; liberarWakeLock(); atualizarUI(); };
     modoUnico = !!unico;
     lendo = true;
     pausado = false;
+    pedirWakeLock();
     falarItem(fromIdx);
   }
 
@@ -22157,11 +22176,13 @@ const PARAGRAFOS_LBI = [
       if (fallbackAtivo) { try { window.speechSynthesis.resume(); } catch (_) {} }
       else if (audio) { audio.play().catch(() => {}); }
       pausado = false;
+      pedirWakeLock();
       atualizarMediaSession(true);
     } else {
       if (fallbackAtivo) { try { window.speechSynthesis.pause(); } catch (_) {} }
       else if (audio) { try { audio.pause(); } catch (_) {} }
       pausado = true;
+      liberarWakeLock();
       atualizarMediaSession(false);
     }
     atualizarUI();
@@ -22172,6 +22193,7 @@ const PARAGRAFOS_LBI = [
     lendo = false;
     pausado = false;
     modoUnico = false;
+    liberarWakeLock();
     if ("mediaSession" in navigator) { try { navigator.mediaSession.playbackState = "none"; } catch (_) {} }
     atualizarUI();
   }
