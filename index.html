@@ -22052,22 +22052,35 @@ const PARAGRAFOS_LBI = [
 
   function atualizarMediaSession(tocando, titulo) {
     if (!("mediaSession" in navigator)) return;
+    // Metadados (título/ícone): se falhar (ex.: ícone em data URI recusado
+    // em algumas versões do Chrome/Android), não deve impedir o restante.
     try {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: titulo || "Leitura em voz alta",
         artist: "IAprova",
-        album: LEIS[leiId].nome,
+        album: (LEIS[leiId] && LEIS[leiId].nome) || "Leitor de Leis",
         artwork: [
-          { src: iconeApp(), sizes: "512x512", type: "image/png" },
+          { src: "./icon-192.png", sizes: "192x192", type: "image/png" },
+          { src: "./icon-512.png", sizes: "512x512", type: "image/png" },
         ],
       });
-      navigator.mediaSession.setActionHandler("play", alternarPlayPause);
-      navigator.mediaSession.setActionHandler("pause", alternarPlayPause);
-      navigator.mediaSession.setActionHandler("stop", pararLeitura);
-      navigator.mediaSession.setActionHandler("nexttrack", modoUnico ? null : proximoItem);
-      navigator.mediaSession.setActionHandler("previoustrack", modoUnico ? null : itemAnterior);
-      navigator.mediaSession.playbackState = tocando ? "playing" : "paused";
-    } catch (_) {}
+    } catch (_) {
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: titulo || "Leitura em voz alta",
+          artist: "IAprova",
+        });
+      } catch (_) {}
+    }
+    // Handlers e estado de reprodução: essenciais para o sistema reconhecer
+    // o áudio como mídia ativa (evita que o processo seja suspenso ao
+    // bloquear a tela). Cada um isolado para não travar os demais.
+    try { navigator.mediaSession.setActionHandler("play", alternarPlayPause); } catch (_) {}
+    try { navigator.mediaSession.setActionHandler("pause", alternarPlayPause); } catch (_) {}
+    try { navigator.mediaSession.setActionHandler("stop", pararLeitura); } catch (_) {}
+    try { navigator.mediaSession.setActionHandler("nexttrack", modoUnico ? null : proximoItem); } catch (_) {}
+    try { navigator.mediaSession.setActionHandler("previoustrack", modoUnico ? null : itemAnterior); } catch (_) {}
+    try { navigator.mediaSession.playbackState = tocando ? "playing" : "paused"; } catch (_) {}
   }
 
   function garantirAudio() {
